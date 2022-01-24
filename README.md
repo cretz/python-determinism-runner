@@ -10,3 +10,7 @@ This is a POC under development. Goals/requirements:
   * There must be a way from the outside of the sandbox to run until all tasks have called the yield point or finished
   * There must be a way from the outside to resume all yielded tasks
   * Need to be able to mutate some objects in the sandbox while all yielded
+* Code style
+  * Must work with >= Python 3.7
+  * Run black on commit
+  * As limited external libs as is reasonable

@@ -1,0 +1,9 @@
+[[source]]
+url = "https://github.com/cretz/python-determinism-runner"
+verify_ssl = true
+name = "pydetrun"
+
+[packages]
+typing-extensions = "*"
+
+[dev-packages]
