@@ -1,7 +1,8 @@
 import inspect
 import logging
 import sys
-from typing import Callable, Generic, TypeVar
+from typing import Callable, Generic, Optional, Tuple, TypeVar
+
 from typing_extensions import ParamSpec
 
 T = TypeVar("T")
@@ -11,11 +12,17 @@ logger = logging.getLogger(__name__)
 
 
 class LocalExecution(Generic[P, T]):
+    _frame: Tuple[str, int, str]
+    _func: Optional[Callable[P, T]]
+
     def __init__(self, func: Callable[P, T], frame: inspect.FrameInfo) -> None:
         logger.debug("Initializing function %s", func)
-        self.frame = (frame.filename, frame.lineno, frame.function)
+        self._frame = (frame.filename, frame.lineno, frame.function)
         # Grab source for entire file of the function
-        with open(inspect.getsourcefile(func)) as f:
+        source_file = inspect.getsourcefile(func)
+        if source_file is None:
+            raise RuntimeError("unable to find file for function")
+        with open(source_file) as f:
             file_source = f.read()
 
         # Regardless of what the first line is, we need to run the preamble. We
@@ -34,15 +41,15 @@ class LocalExecution(Generic[P, T]):
         }
 
         # Run exec and check obtained func
-        self.func = None
+        self._func = None
         logger.debug("Executing file source:\n%s", file_source)
         exec(file_source, globals_and_locals, globals_and_locals)
-        if self.func is None:
+        if self._func is None:
             raise RuntimeError("Function reference not found")
-        logger.debug("Set func as %s", self.func)
+        logger.debug("Set func as %s", self._func)
 
     def is_for_frame(self, frame: inspect.FrameInfo) -> bool:
-        return self.frame == (frame.filename, frame.lineno, frame.function)
+        return self._frame == (frame.filename, frame.lineno, frame.function)
 
     # Called inside the exec
     def preamble(self):
@@ -76,13 +83,11 @@ def deterministic(func: Callable[P, T]) -> Callable[P, LocalExecution[P, T]]:
         raise TypeError("Function cannot be method")
 
     caller_frame = inspect.stack()[1]
-    is_in_execution = (
-        "__pydetrun_execution" in globals()
-        and __pydetrun_execution.is_for_frame(caller_frame)
-    )
+    execution: LocalExecution[P, T] = globals()["__pydetrun_execution"]
+    is_in_execution = execution is not None and execution.is_for_frame(caller_frame)
     # If we're defining this in execution, store the function
     if is_in_execution:
-        __pydetrun_execution.func = func
+        execution._func = func
 
     def run(*args, **kwargs):
         # If this is trying to be run inside the execution for itself, fail

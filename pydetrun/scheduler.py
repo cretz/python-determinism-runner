@@ -1,8 +1,12 @@
 import asyncio
 import collections
+from typing import Deque, Optional
 
 
 class Scheduler:
+    _loop: asyncio.AbstractEventLoop
+    _waiters: Deque[asyncio.Future]
+
     def __init__(self) -> None:
         self._loop = asyncio.new_event_loop()
         # Set of tasks waiting on a single wakeup (modeled off asyncio.Event)
@@ -11,16 +15,18 @@ class Scheduler:
         setattr(self._loop, "__pydetrun_scheduler", self)
 
     @staticmethod
-    def get_running_scheduler():
-        scheduler = getattr(asyncio.get_running_loop(), "__pydetrun_scheduler", None)
+    def get_running_scheduler() -> "Scheduler":
+        scheduler: Optional[Scheduler] = getattr(
+            asyncio.get_running_loop(), "__pydetrun_scheduler", None
+        )
         if scheduler is None:
             raise RuntimeError("no scheduler in this event loop")
         return scheduler
 
-    def add_future(self, future):
+    def add_future(self, future: asyncio.Future):
         return asyncio.ensure_future(future, loop=self._loop)
 
-    async def wait(self):
+    async def wait(self) -> None:
         # Mark current task as having reached our wait
         curr_task = asyncio.current_task(self._loop)
         if curr_task is None:
@@ -32,13 +38,13 @@ class Scheduler:
         self._waiters.append(fut)
         try:
             await fut
-            return True
+            return
         finally:
             # Unset that the task is waiting and remove from waiters
             setattr(curr_task, "__pydetrun_waiting", False)
             self._waiters.remove(fut)
 
-    def tick(self):
+    def tick(self) -> None:
         # Go over every waiter and set it as done
         for fut in self._waiters:
             if not fut.done():
@@ -57,5 +63,5 @@ class Scheduler:
                 )
 
 
-async def wait():
+async def wait() -> None:
     await Scheduler.get_running_scheduler().wait()
