@@ -1,6 +1,7 @@
 import asyncio
 import collections
-from typing import Deque, Optional
+import concurrent.futures
+from typing import Awaitable, Deque, Optional, Union
 
 
 class Scheduler:
@@ -23,7 +24,11 @@ class Scheduler:
             raise RuntimeError("no scheduler in this event loop")
         return scheduler
 
-    def add_future(self, future: asyncio.Future):
+    def add_future(
+        self, future: Union[Awaitable, concurrent.futures.Future]
+    ) -> asyncio.Task:
+        if isinstance(future, concurrent.futures.Future):
+            future = asyncio.wrap_future(future, loop=self._loop)
         return asyncio.ensure_future(future, loop=self._loop)
 
     async def wait(self) -> None:

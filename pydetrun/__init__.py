@@ -1,2 +1,2 @@
-from pydetrun.runner import deterministic
+from pydetrun.execution import Execution
 from pydetrun.scheduler import Scheduler, wait

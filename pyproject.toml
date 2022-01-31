@@ -24,6 +24,8 @@ test = "pytest"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+log_cli = true
+log_cli_level = "DEBUG"
 
 [tool.isort]
 profile = "black"
